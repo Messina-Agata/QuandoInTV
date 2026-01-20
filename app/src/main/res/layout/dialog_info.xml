@@ -59,7 +59,7 @@
         android:layout_gravity="center"/>
 
     <TextView
-        android:text="Per richieste o segnalazioni, aprire un issue sul repository ufficiale: https://github.com/Messina-Agata/QuandoInTV/issues"
+        android:text="Per richieste o segnalazioni, aprire un'issue sul repository ufficiale: https://github.com/Messina-Agata/QuandoInTV/issues"
         android:textSize="18sp"
         android:layout_marginBottom="8dp"
         android:layout_width="wrap_content"

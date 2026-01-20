@@ -23,6 +23,6 @@ Icone basate su Material Icons con licenza Apache License 2.0.
 
 5. Licenza
 
-Il codice sorgente dell’app è distribuito sotto licenza GPLv3.
+Il codice sorgente dell'app è distribuito sotto licenza GPLv3.
 Il codice è disponibile nel repository ufficiale:
 https://github.com/Messina-Agata/QuandoInTV

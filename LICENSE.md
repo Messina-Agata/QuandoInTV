@@ -34,5 +34,5 @@ Icone personalizzate generate dall'autrice. Nessuna attribuzione esterna necessa
 
 4. Fonti dati
 
-L’app utilizza informazioni provenienti da fonti pubblicamente accessibili per mostrare i palinsesti televisivi.
+L'app utilizza informazioni provenienti da fonti pubblicamente accessibili per mostrare i palinsesti televisivi.
 I contenuti rimangono di proprietà dei rispettivi titolari.
