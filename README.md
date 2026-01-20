@@ -3,7 +3,7 @@
 <div style="display: flex; align-items: center;">
   <img src="QuandoInTVIcon.png" width="150" style="margin-right: 15px;">
   <p style="margin: 0;">
-    <strong>QuandoInTV</strong> è un'app che consente di tenere traccia della messa in onda di programmi, film o serie TV.
+    <strong>QuandoInTV</strong> è un'app che consente di non perdere la messa in onda di programmi, film o serie TV.
   </p>
 </div>
 
