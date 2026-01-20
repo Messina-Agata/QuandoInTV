@@ -16,12 +16,7 @@ Tra le principali:
 
 Le informazioni sui palinsesti TV provengono da fonti pubblicamente accessibili.
 
-
-4. Icone e grafica
-
-Icone basate su Material Icons con licenza Apache License 2.0.
-
-5. Licenza
+4. Licenza
 
 Il codice sorgente dell'app è distribuito sotto licenza GPLv3.
 Il codice è disponibile nel repository ufficiale:
