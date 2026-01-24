@@ -84,12 +84,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         val root = findViewById<View>(R.id.root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val bottomInset = maxOf(ime, systemBars) // massimo tra tastiera e navigation bar
             view.setPadding(
                 view.paddingLeft,
                 view.paddingTop,
                 view.paddingRight,
-                systemBars.bottom
+                bottomInset
             )
             insets
         }
