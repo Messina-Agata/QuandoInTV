@@ -13,4 +13,5 @@
     <color name="gray">#C0C0C0</color>
     <color name="rosso">#FF0000</color>
     <color name="verde">#008000</color>
+    <color name="grigio_scuro">#5b5b5b</color>
 </resources>

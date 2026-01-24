@@ -32,6 +32,7 @@ import java.time.format.DateTimeFormatter
 import java.io.File
 import android.widget.EditText
 import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Button
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -48,6 +49,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.appcompat.widget.Toolbar
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.marginEnd
 
 class MainActivity : AppCompatActivity() {
@@ -56,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchButton: Button
     private lateinit var programs: Array<String>
     private lateinit var channels: Array<Channel>
+    private var connectionError = false
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -78,6 +82,17 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val root = findViewById<View>(R.id.root)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                systemBars.bottom
+            )
+            insets
+        }
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         toolbar.setTitleTextColor(getColor(R.color.giallo))
@@ -304,7 +319,42 @@ class MainActivity : AppCompatActivity() {
     private suspend fun findChannels() {
         val sURL = "https://guidatv.quotidiano.net/"
         val siteContent = getWebPage(sURL)
-        if (siteContent.isEmpty()) return
+        if (siteContent.isEmpty()) {
+            connectionError = true
+            showErrorMessage("Errore di connessione")
+            val retryButton = Button(this).apply {
+                text = "Riprova"
+                layoutParams = LinearLayout.LayoutParams(250, WRAP_CONTENT).apply { gravity =
+                    Gravity.CENTER
+                }
+                backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this@MainActivity, R.color.gray))
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.grigio_scuro))
+                setOnClickListener {
+                    currentFocus?.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(window.decorView.windowToken, 0)
+                    container.removeAllViews()
+                    try {
+                        lifecycleScope.launch {
+                            findChannels()
+                            insertProgramsToSearch()
+                        }
+                    } catch (ex: Exception) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            withContext(Dispatchers.Main) {
+                                showErrorMessage(ex.toString())
+                            }
+                        }
+                        throw ex
+                    }
+                }
+            }
+            container.addView(retryButton)
+            return
+        }
+        else {
+            connectionError = false
+        }
 
         val rx = Regex(
             "<section class=\"channel channel-thumbnail\".*?</section>",
@@ -342,7 +392,6 @@ class MainActivity : AppCompatActivity() {
                 response.body?.string() ?: ""
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    showErrorMessage("Errore di connessione a $url: $e")
                     ""
                 }
             }
@@ -458,6 +507,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         searchButton = Button(this).apply {
+            isEnabled = !connectionError
             text = "Cerca programmi"
             height = 200
             width = 400
@@ -565,6 +615,8 @@ class MainActivity : AppCompatActivity() {
         val today = LocalDate.now()
         val tasks = mutableListOf<Deferred<String>>()
         val metadata = mutableListOf<Pair<Int, String>>()
+        if (channels.isEmpty())
+            return@withContext
 
         // Avvio richieste HTTP
         for (j in channels.indices) {
@@ -578,6 +630,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val results = tasks.awaitAll()
+        if (results.any { it.isEmpty() }) {
+            showErrorMessage("Errore di connessione. Controlla la tua connessione e riavvia la ricerca")
+            searchButton.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(this@MainActivity, R.color.blu))
+            return@withContext
+        }
 
         // Elaborazione risultati
         for (i in results.indices) {
