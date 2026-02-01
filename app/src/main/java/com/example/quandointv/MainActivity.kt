@@ -281,7 +281,9 @@ class MainActivity : AppCompatActivity() {
         val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
         for ((key, dayOfWeek) in days) {
             if (prefs.getBoolean(key, false)) {
-                val intent = Intent(this, ReminderReceiver::class.java)
+                val intent = Intent(this, ReminderReceiver::class.java).apply {
+                    putExtra("day", dayOfWeek)
+                }
                 val pendingIntent = PendingIntent.getBroadcast(
                     this,
                     dayOfWeek,
