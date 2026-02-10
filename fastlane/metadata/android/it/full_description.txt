@@ -1,0 +1,2 @@
+QuandoInTV è un'app che consente di non perdere la messa in onda di programmi,
+film o serie TV. Compatibile da Android 7.0 (Nougat) in poi.
