@@ -1,0 +1,2 @@
+QuandoInTV helps you keep track of the broadcast schedule of TV programs,
+movies, and TV series. Compatible with Android 7.0 (Nougat) and above.
