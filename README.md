@@ -7,6 +7,11 @@
   </p>
 </div>
 
+<br>
+<a href="https://f-droid.org/packages/com.agatamessina.quandointv/">
+  <img src="https://github.com/user-attachments/assets/8757c78c-b0d5-4b8a-9adb-934d8a758e9e" alt="Get it on F-Droid" height="60" />
+</a>
+
 ## 📖 Istruzioni per l'utilizzo
 
 Il programma effettua la ricerca, nei palinsesti dei canali televisivi italiani, per tutta la settimana a venire, di una lista di titoli fornita dall'utente.
