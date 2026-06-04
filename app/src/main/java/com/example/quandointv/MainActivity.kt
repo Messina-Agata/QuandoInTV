@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchButton: Button
     private lateinit var programs: Array<String>
     private lateinit var channels: Array<Channel>
+    private lateinit var channelPrograms: Array<Program>
     private var connectionError = false
 
     private val httpClient = OkHttpClient.Builder()
@@ -70,6 +71,11 @@ class MainActivity : AppCompatActivity() {
     data class Channel(
         var name: String = "",
         var url: String = ""
+    )
+
+    data class Program(
+        var title: String = "",
+        var time: String = ""
     )
 
     private val privacyPolicyLink = "https://github.com/Messina-Agata/QuandoInTV/blob/main/PrivacyPolicy.md"
@@ -360,31 +366,25 @@ class MainActivity : AppCompatActivity() {
             connectionError = false
         }
 
-        val rx = Regex(
-            "<section class=\"channel channel-thumbnail\".*?</section>",
-            RegexOption.DOT_MATCHES_ALL
-        )
-        val matches = rx.findAll(siteContent).toList()
+        val rx = """"Canali Televisivi Principali", "itemListElement": \[\{(.*?)\}\], "numberOfItems"""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        val matches = rx.find(siteContent)
 
-        val rx2 = Regex(
-            "(?<=class=\"channel-name\">)(.*?)(?=</span>)",
-            RegexOption.IGNORE_CASE
-        )
-        val matches2 = rx2.findAll(siteContent).toList()
+        val rx1 = """"url": "([^"]*)"""".toRegex(RegexOption.IGNORE_CASE)
+        val matches1 = rx1.findAll(matches?.groupValues?.get(1) ?: "").toList()
 
-        channels = Array(matches.size) { index ->
-            val section = matches[index].value
+        val rx2 = """"name": "([^"]*)"""".toRegex(RegexOption.IGNORE_CASE)
+        val matches2 = rx2.findAll(matches?.groupValues?.get(1) ?: "").toList()
 
-            val rxUrl = Regex(
-                "(?<=a href=\")/(.*?)(?=\")",
-                RegexOption.IGNORE_CASE
-            )
-            val matchUrl = rxUrl.find(section)
+        if (matches1.isEmpty() || matches2.isEmpty()) {
+            showErrorMessage("Errore nell'estrazione dei canali")
+            return
+        }
 
-            val url = sURL + (matchUrl?.groupValues?.get(1) ?: "")
-            val name = matches2.getOrNull(index)?.value ?: ""
+        channels = Array(matches2.size) { index ->
+            val matchUrl = (matches1.map { it.groupValues[1] })[index]
+            val name = (matches2.map { it.groupValues[1] })[index]
 
-            Channel(name = name, url = url)
+            Channel(name = name, url = matchUrl)
         }
     }
 
@@ -646,24 +646,25 @@ class MainActivity : AppCompatActivity() {
             val siteContentRaw = results[i]
             if (siteContentRaw.isEmpty()) return@withContext
             var siteContent = siteContentRaw
-            val startIndex = siteContent.indexOf("<section id=\"faqs\">")
-            if (startIndex < 0) continue
-            siteContent = siteContent.substring(startIndex)
-            val endIndex = siteContent.indexOf("</li></ul>")
-            if (endIndex < 0) continue
-            siteContent = siteContent.substring(0, endIndex + 5)
-            val rx = Regex("(?<=<li>)(.*?)(?=</li>)", RegexOption.IGNORE_CASE)
-            val matches = rx.findAll(siteContent).toList()
-            if (matches.isEmpty()) continue
-            val lastTimeString = matches.last().value.substring(0, 5)
+            val regex = """<a class="program"(.*?)<div class="program-image-wrapper">""".toRegex(RegexOption.DOT_MATCHES_ALL)
+            val contentList = regex.findAll(siteContent).map { it.groupValues[1] }.toList()
+            if (contentList.isEmpty()) continue
+            val rxTitle = """title="([^"]*)"""".toRegex()
+            val rxTime = """<div class="hour">([^<]*)</div>""".toRegex()
+            channelPrograms = arrayOf<Program>()
+            channelPrograms = Array(contentList.size) { index ->
+                val title = rxTitle.find(contentList[index])?.groupValues?.get(1) ?: ""
+                val time = rxTime.find(contentList[index])?.groupValues?.get(1) ?: ""
+                Program(title = title, time = time)
+            }
+            val lastTimeString = channelPrograms.last().time
             val lastTime = LocalTime.parse("$lastTimeString:00")
             val firstTime = LocalTime.parse("06:00:00")
-            var elementsCount = matches.size
+            var elementsCount = channelPrograms.size
             if (lastTime == firstTime) elementsCount--
             for (ctr in 0 until elementsCount) {
-                val matchValue = matches[ctr].value
                 for (program in programs) {
-                    if (matchValue.contains(program, ignoreCase = true)) {
+                    if (channelPrograms[ctr].title.contains(program, ignoreCase = true)) {
 
                         // Primo blocco (nome programma)
                         val found = TextView(this@MainActivity).apply {
@@ -683,7 +684,7 @@ class MainActivity : AppCompatActivity() {
                         container.addView(found)
 
                         // Secondo blocco (dettagli)
-                        val timeString = matchValue.substring(0, 5)
+                        val timeString = channelPrograms[ctr].time
                         val time = LocalTime.parse("$timeString:00")
                         val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
                         val dayDate = LocalDate.parse(dayString, dateFormatter)
@@ -693,7 +694,7 @@ class MainActivity : AppCompatActivity() {
                             ) dayDate.plusDays(1)
                             else dayDate
                         val found2 = TextView(this@MainActivity).apply {
-                            text = "${finalDate.format(dateFormatter)} ${channels[channelIndex].name} $matchValue"
+                            text = "${finalDate.format(dateFormatter)} ${channels[channelIndex].name} ${channelPrograms[ctr].time} | ${channelPrograms[ctr].title}"
                             val params = LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT
