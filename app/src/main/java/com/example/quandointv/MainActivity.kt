@@ -17,11 +17,13 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import java.util.Calendar
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.text.Html
 import android.widget.TextView
 import android.view.Gravity
 import android.view.Menu
@@ -52,6 +54,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.marginEnd
+import java.util.regex.Pattern
 
 class MainActivity : AppCompatActivity() {
     private lateinit var scrollView: ScrollView
@@ -75,7 +78,8 @@ class MainActivity : AppCompatActivity() {
 
     data class Program(
         var title: String = "",
-        var time: String = ""
+        var time: String = "",
+        var link: String = ""
     )
 
     private val privacyPolicyLink = "https://github.com/Messina-Agata/QuandoInTV/blob/main/PrivacyPolicy.md"
@@ -366,7 +370,7 @@ class MainActivity : AppCompatActivity() {
             connectionError = false
         }
 
-        val rx = """"Canali Televisivi Principali", "itemListElement": \[\{(.*?)\}\], "numberOfItems"""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        val rx = """"Canali Televisivi Principali", .*? "itemListElement": \[\{(.*?)\}\]""".toRegex(RegexOption.DOT_MATCHES_ALL)
         val matches = rx.find(siteContent)
 
         val rx1 = """"url": "([^"]*)"""".toRegex(RegexOption.IGNORE_CASE)
@@ -615,7 +619,23 @@ class MainActivity : AppCompatActivity() {
         programs = lines.toTypedArray()
     }
 
+    fun decodeRawHtml(rawHtml: String): String {
+        val pattern = Pattern.compile("&[a-zA-Z0-9#x]+;")
+        val matcher = pattern.matcher(rawHtml)
+        val sb = StringBuffer()
+
+        while (matcher.find()) {
+            val rawChar = matcher.group()
+            val decodedChar = Html.fromHtml(rawChar, Html.FROM_HTML_MODE_LEGACY).toString()
+            val finalDecodedChar = decodedChar.replace("\\", "\\\\").replace("$", "\\$")
+            matcher.appendReplacement(sb, finalDecodedChar)
+        }
+        matcher.appendTail(sb)
+        return sb.toString()
+    }
+
     private suspend fun findPrograms() = withContext(Dispatchers.Main) {
+        val sURL = "https://guidatv.quotidiano.net"
         val today = LocalDate.now()
         val tasks = mutableListOf<Deferred<String>>()
         val metadata = mutableListOf<Pair<Int, String>>()
@@ -645,17 +665,23 @@ class MainActivity : AppCompatActivity() {
             val (channelIndex, dayString) = metadata[i]
             val siteContentRaw = results[i]
             if (siteContentRaw.isEmpty()) return@withContext
-            var siteContent = siteContentRaw
-            val regex = """<a class="program"(.*?)<div class="program-image-wrapper">""".toRegex(RegexOption.DOT_MATCHES_ALL)
+            var siteContent = decodeRawHtml(siteContentRaw)
+            val regex = """<div class="program"(.*?)<div class="program-image-category">""".toRegex(RegexOption.DOT_MATCHES_ALL)
             val contentList = regex.findAll(siteContent).map { it.groupValues[1] }.toList()
             if (contentList.isEmpty()) continue
             val rxTitle = """title="([^"]*)"""".toRegex()
             val rxTime = """<div class="hour">([^<]*)</div>""".toRegex()
+            val rxLink = """href="([^"]*)"""".toRegex()
             channelPrograms = arrayOf<Program>()
             channelPrograms = Array(contentList.size) { index ->
                 val title = rxTitle.find(contentList[index])?.groupValues?.get(1) ?: ""
                 val time = rxTime.find(contentList[index])?.groupValues?.get(1) ?: ""
-                Program(title = title, time = time)
+                val link = rxLink.find(contentList[index])?.groupValues?.get(1) ?: ""
+                Program(title = title, time = time, link = link)
+            }
+            if (channelPrograms.isEmpty()) {
+                showErrorMessage("Errore nell'estrazione della programmazione")
+                return@withContext
             }
             val lastTimeString = channelPrograms.last().time
             val lastTime = LocalTime.parse("$lastTimeString:00")
@@ -693,20 +719,59 @@ class MainActivity : AppCompatActivity() {
                                 time < LocalTime.parse("06:00:00")
                             ) dayDate.plusDays(1)
                             else dayDate
-                        val found2 = TextView(this@MainActivity).apply {
-                            text = "${finalDate.format(dateFormatter)} ${channels[channelIndex].name} ${channelPrograms[ctr].time} | ${channelPrograms[ctr].title}"
+
+                        val rigaProgramma = LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.HORIZONTAL
                             val params = LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT
                             )
-                            layoutParams = params
                             params.setMargins(20, 0, 20, 0)
+                            layoutParams = params
+                        }
+
+                        val found2 = TextView(this@MainActivity).apply {
+                            text = "${finalDate.format(dateFormatter)} ${channels[channelIndex].name} ${channelPrograms[ctr].time} | ${channelPrograms[ctr].title}"
+                            val params = LinearLayout.LayoutParams(
+                                0,
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                1f
+                            )
+                            layoutParams = params
                             textSize = 20f
                             gravity = Gravity.START
                             isSingleLine = false
                             maxLines = Int.MAX_VALUE
                         }
-                        container.addView(found2)
+                        rigaProgramma.addView(found2)
+
+                        val bloccoLink = TextView(this@MainActivity).apply {
+                            text = "Dettagli"
+                            textSize = 20f
+                            setTextColor(Color.BLUE)
+                            paintFlags = paintFlags or Paint.UNDERLINE_TEXT_FLAG
+
+                            layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                setMargins(15, 0, 0, 0)
+                            }
+
+                            val linkProgramma = "${sURL}${channelPrograms[ctr].link}"
+
+                            setOnClickListener {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(linkProgramma))
+                                    this@MainActivity.startActivity(intent)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+                        rigaProgramma.addView(bloccoLink)
+
+                        container.addView(rigaProgramma)
                     }
                 }
             }
